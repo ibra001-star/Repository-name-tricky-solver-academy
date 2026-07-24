@@ -1,0 +1,42 @@
+import { Router } from 'express';
+import authRoutes from './authRoutes';
+import subjectRoutes from './subjectRoutes';
+import questionRoutes from './questionRoutes';
+import examRoutes from './examRoutes';
+import paymentRoutes from './paymentRoutes';
+import couponRoutes from './couponRoutes';
+import uploadRoutes from './uploadRoutes';
+import adminRoutes from './adminRoutes';
+import notificationRoutes from './notificationRoutes';
+import certificateRoutes from './certificateRoutes';
+import forumRoutes from './forumRoutes';
+import messageRoutes from './messageRoutes';
+import blogRoutes from './blogRoutes';
+import referralRoutes from './referralRoutes';
+import liveClassRoutes from './liveClassRoutes';
+import studyPlanRoutes from './studyPlanRoutes';
+import newsletterRoutes from './newsletterRoutes';
+import healthRoutes from './healthRoutes';
+
+const router = Router();
+
+router.use('/health', healthRoutes);
+router.use('/auth', authRoutes);
+router.use('/subjects', subjectRoutes);
+router.use('/questions', questionRoutes);
+router.use('/exams', examRoutes);
+router.use('/payments', paymentRoutes);
+router.use('/coupons', couponRoutes);
+router.use('/uploads', uploadRoutes);
+router.use('/admin', adminRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/certificates', certificateRoutes);
+router.use('/forum', forumRoutes);
+router.use('/messages', messageRoutes);
+router.use('/blog', blogRoutes);
+router.use('/referrals', referralRoutes);
+router.use('/live-classes', liveClassRoutes);
+router.use('/study-plan', studyPlanRoutes);
+router.use('/newsletter', newsletterRoutes);
+
+export default router;

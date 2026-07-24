@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 226 74% 51%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 43 63% 53%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 220 20% 96%;
+    --muted-foreground: 220 10% 45%;
+    --accent: 43 63% 53%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 20% 90%;
+    --ring: 226 74% 51%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 224 46% 8%;
+    --foreground: 210 20% 96%;
+    --card: 224 40% 11%;
+    --card-foreground: 210 20% 96%;
+    --primary: 220 85% 65%;
+    --primary-foreground: 224 46% 8%;
+    --secondary: 43 63% 53%;
+    --secondary-foreground: 224 46% 8%;
+    --muted: 224 30% 16%;
+    --muted-foreground: 220 10% 65%;
+    --accent: 43 63% 53%;
+    --accent-foreground: 224 46% 8%;
+    --destructive: 0 63% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 224 25% 20%;
+    --ring: 220 85% 65%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  /* Accessibility: visible focus rings for keyboard navigation */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* High contrast mode toggle, applied via a class on <html> */
+  .high-contrast {
+    --foreground: 0 0% 0%;
+    --background: 0 0% 100%;
+    --border: 0 0% 0%;
+  }
+  .high-contrast.dark {
+    --foreground: 0 0% 100%;
+    --background: 0 0% 0%;
+    --border: 0 0% 100%;
+  }
+}

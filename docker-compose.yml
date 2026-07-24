@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tsa_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tsa_user
+      POSTGRES_PASSWORD: tsa_password
+      POSTGRES_DB: tricky_solver_academy
+    ports:
+      - '5432:5432'
+    volumes:
+      - tsa_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tsa_user -d tricky_solver_academy']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+      target: build
+    container_name: tsa_api
+    restart: unless-stopped
+    env_file:
+      - ./apps/api/.env
+    environment:
+      DATABASE_URL: postgresql://tsa_user:tsa_password@postgres:5432/tricky_solver_academy?schema=public
+      NODE_ENV: development
+      CLIENT_URL: http://localhost:3000
+    ports:
+      - '4000:4000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./apps/api/src:/app/src
+      - ./apps/api/prisma:/app/prisma
+    command: sh -c "npx prisma generate && npx prisma migrate dev --name init && npx prisma db seed && npm run dev"
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      target: deps
+    container_name: tsa_web
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+    ports:
+      - '3000:3000'
+    depends_on:
+      - api
+    volumes:
+      - ./apps/web/src:/app/src
+      - ./apps/web/public:/app/public
+    command: sh -c "npm run dev"
+
+volumes:
+  tsa_postgres_data:

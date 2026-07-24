@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+apps/web/.next/
+
+# Production builds
+dist/
+build/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.test
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Testing
+coverage/
+
+# Prisma
+apps/api/prisma/dev.db
+
+# Misc
+*.tsbuildinfo
+.turbo/

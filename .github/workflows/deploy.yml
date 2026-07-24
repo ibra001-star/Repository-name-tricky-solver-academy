@@ -1,0 +1,148 @@
+name: Deploy
+
+# Runs only after CI has completed successfully — deployment should never
+# happen from a workflow that hasn't already passed lint/typecheck/test/
+# build, so this is gated on the CI workflow's conclusion rather than
+# duplicating those checks here. Covers both `develop` (staging) and `main`
+# (production) so merges to either branch trigger their matching deploy.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main, develop]
+
+concurrency:
+  group: deploy-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  # ── Staging (develop branch) ────────────────────────────────────────
+  # Uses GitHub's "staging" Environment, which scopes a separate set of
+  # secrets from production — a staging deploy can never accidentally
+  # touch the production database or Vercel project, because the secrets
+  # simply don't exist in this Environment's scope.
+  deploy-web-staging:
+    name: 'Staging: deploy web to Vercel'
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'develop'
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Vercel (preview/staging)
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: apps/web
+          # No --prod flag: deploys as a Vercel preview deployment tied to
+          # this project, giving staging its own stable-ish preview URL
+          # without promoting to the production domain.
+
+  deploy-api-staging:
+    name: 'Staging: deploy API to Render'
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'develop'
+    environment: staging
+    steps:
+      - name: Trigger Render deploy hook (staging service)
+        run: |
+          if [ -z "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" ]; then
+            echo "STAGING secret RENDER_DEPLOY_HOOK_URL is not set — skipping."
+            echo "Set it on the 'staging' Environment once the staging Render service exists."
+            exit 0
+          fi
+          curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
+  migrate-database-staging:
+    name: 'Staging: run database migrations'
+    runs-on: ubuntu-latest
+    needs: [deploy-api-staging]
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'develop'
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - name: Install dependencies
+        working-directory: apps/api
+        run: npm ci
+      - name: Apply migrations to staging database
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "STAGING secret DATABASE_URL is not set — skipping migration."
+            exit 0
+          fi
+          npx prisma migrate deploy
+
+  # ── Production (main branch) ────────────────────────────────────────
+  deploy-web-production:
+    name: 'Production: deploy web to Vercel'
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: apps/web
+          vercel-args: '--prod'
+
+  deploy-api-production:
+    name: 'Production: deploy API to Render'
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
+    environment: production
+    steps:
+      - name: Trigger Render deploy hook
+        # Render's deploy hooks are simple POST-to-URL triggers — no action
+        # package needed, and this keeps the workflow provider-agnostic
+        # enough to swap in Railway's equivalent hook URL with no other changes.
+        run: |
+          if [ -z "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" ]; then
+            echo "PRODUCTION secret RENDER_DEPLOY_HOOK_URL is not set — skipping API deploy."
+            echo "Set it on the 'production' Environment once the Render service exists."
+            exit 0
+          fi
+          curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
+  migrate-database-production:
+    name: 'Production: run database migrations'
+    runs-on: ubuntu-latest
+    needs: [deploy-api-production]
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
+    # Production Environments can additionally be configured in the GitHub
+    # UI with required reviewers, so a human approves before this job (and
+    # therefore the migration) runs — recommended for the production
+    # database specifically, even with the rest of the pipeline automated.
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - name: Install dependencies
+        working-directory: apps/api
+        run: npm ci
+      - name: Apply migrations to production database
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "PRODUCTION secret DATABASE_URL is not set — skipping migration."
+            exit 0
+          fi
+          npx prisma migrate deploy

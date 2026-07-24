@@ -1,0 +1,739 @@
+// Tricky Solver Academy — Database Schema
+// Phase 1: core identity, subject/question taxonomy, exams, payments.
+// Designed to extend cleanly into forum, live classes, certificates, etc. in later phases.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum AuthProvider {
+  EMAIL
+  GOOGLE
+}
+
+enum SubscriptionPlan {
+  MONTHLY
+  YEARLY
+  LIFETIME
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  PENDING
+}
+
+enum PaymentProvider {
+  MPESA
+  STRIPE
+  PAYPAL
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum PaymentPurpose {
+  SUBSCRIPTION
+  PAPER_PURCHASE
+  BUNDLE_PURCHASE
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  STRUCTURED
+  FILL_IN_BLANK
+  MATCHING
+  ESSAY
+  CALCULATION
+  GRAPH
+  IMAGE_BASED
+}
+
+enum DifficultyLevel {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum CurriculumType {
+  CBC
+  KCSE
+}
+
+enum ExamType {
+  TOPICAL
+  CAT
+  MIDTERM
+  END_TERM
+  KCSE_MOCK
+  KCSE_PREDICTION
+  CBC_ASSESSMENT
+  HOLIDAY_ASSIGNMENT
+  PAST_PAPER
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  MARKED
+  ABANDONED
+}
+
+enum UploadStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+// ─────────────────────────────────────────────
+// IDENTITY
+// ─────────────────────────────────────────────
+
+model User {
+  id                String        @id @default(uuid())
+  email             String        @unique
+  passwordHash      String? // null for OAuth-only accounts
+  firstName         String
+  lastName          String
+  phone             String?
+  profilePictureUrl String?
+  role              Role          @default(STUDENT)
+  authProvider      AuthProvider  @default(EMAIL)
+  googleId          String?       @unique
+
+  isEmailVerified   Boolean       @default(false)
+  isTwoFactorEnabled Boolean      @default(false)
+  twoFactorSecret   String?
+
+  isActive          Boolean       @default(true)
+  form              Int? // 1-4 for KCSE, or grade level for CBC
+  school            String?
+  county            String?
+  referralCode      String?       @unique
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  lastLoginAt       DateTime?
+
+  // relations
+  refreshTokens     RefreshToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
+
+  questionsAuthored Question[]      @relation("QuestionAuthor")
+  examsCreated       Exam[]         @relation("ExamCreator")
+  attempts           ExamAttempt[]
+  bookmarks          Bookmark[]
+  payments           Payment[]
+  subscriptions      Subscription[]
+  paperPurchases     PaperPurchase[]
+  downloads          Download[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  uploads            TeacherUpload[]
+
+  forumThreads       ForumThread[]   @relation("ForumThreadAuthor")
+  forumPosts         ForumPost[]     @relation("ForumPostAuthor")
+  sentMessages       Message[]       @relation("MessageSender")
+  receivedMessages   Message[]       @relation("MessageRecipient")
+  blogPosts          BlogPost[]
+  referralsMade      Referral[]      @relation("ReferralReferrer")
+  referredBy         Referral?       @relation("ReferralReferee")
+  liveClassesHosted  LiveClass[]
+  studyPlanItems     StudyPlanItem[]
+
+  @@index([role])
+  @@index([email])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  userAgent String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ─────────────────────────────────────────────
+// SUBJECT / TOPIC TAXONOMY
+// ─────────────────────────────────────────────
+
+model Subject {
+  id          String   @id @default(uuid())
+  name        String   @unique // "Mathematics", "Business Studies"
+  slug        String   @unique
+  description String?
+  iconUrl     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  topics      Topic[]
+  questions   Question[]
+  exams       Exam[]
+  forumThreads ForumThread[]
+  liveClasses LiveClass[]
+  studyPlanItems StudyPlanItem[]
+
+  @@map("subjects")
+}
+
+model Topic {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  parentId    String? // self-relation for subtopics
+  parent      Topic?   @relation("TopicSubtopics", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  subtopics   Topic[]  @relation("TopicSubtopics")
+
+  curriculum  CurriculumType @default(KCSE)
+  form        Int? // 1-4
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  questions   Question[]
+
+  @@unique([subjectId, slug])
+  @@index([subjectId])
+  @@map("topics")
+}
+
+// ─────────────────────────────────────────────
+// QUESTION BANK
+// ─────────────────────────────────────────────
+
+model Question {
+  id            String          @id @default(uuid())
+  subjectId     String
+  subject       Subject         @relation(fields: [subjectId], references: [id])
+  topicId       String
+  topic         Topic           @relation(fields: [topicId], references: [id])
+
+  type          QuestionType
+  difficulty    DifficultyLevel @default(MEDIUM)
+  curriculum    CurriculumType  @default(KCSE)
+  form          Int?
+  year          Int? // year of past paper, if applicable
+  publisher     String?
+  tags          String[]        @default([])
+
+  // Content stored as rich JSON so it can hold LaTeX, images, tables, etc.
+  // Shape (application-level contract):
+  // { text: string, latex?: string, imageUrls?: string[], options?: {id,text,isCorrect}[],
+  //   blanks?: string[], matchPairs?: {left,right}[] }
+  content       Json
+  solution      Json // { steps: string[], finalAnswer: string, markingScheme?: string, explanationLatex?: string }
+  marks         Int             @default(1)
+
+  authorId      String
+  author        User            @relation("QuestionAuthor", fields: [authorId], references: [id])
+  isApproved    Boolean         @default(false)
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  examQuestions ExamQuestion[]
+  bookmarks     Bookmark[]
+
+  @@index([subjectId, topicId])
+  @@index([type])
+  @@index([difficulty])
+  @@index([curriculum, form])
+  @@map("questions")
+}
+
+model Bookmark {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, questionId])
+  @@map("bookmarks")
+}
+
+// ─────────────────────────────────────────────
+// EXAMS
+// ─────────────────────────────────────────────
+
+model Exam {
+  id              String        @id @default(uuid())
+  title           String
+  description     String?
+  subjectId       String
+  subject         Subject       @relation(fields: [subjectId], references: [id])
+  examType        ExamType
+  curriculum      CurriculumType @default(KCSE)
+  form            Int?
+
+  durationMinutes Int
+  totalMarks      Int           @default(0)
+  negativeMarking Boolean       @default(false)
+  randomizeOrder  Boolean       @default(false)
+  isPremium       Boolean       @default(false)
+  priceKes        Int?          @default(0) // individual purchase price in KES (whole units)
+
+  scheduledStart  DateTime?
+  scheduledEnd    DateTime?
+
+  isPublished     Boolean       @default(false)
+  createdById     String
+  createdBy       User          @relation("ExamCreator", fields: [createdById], references: [id])
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  examQuestions   ExamQuestion[]
+  attempts        ExamAttempt[]
+  purchases       PaperPurchase[]
+  payments        Payment[]
+
+  @@index([subjectId])
+  @@index([examType])
+  @@map("exams")
+}
+
+model ExamQuestion {
+  id         String   @id @default(uuid())
+  examId     String
+  exam       Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+  order      Int
+
+  @@unique([examId, questionId])
+  @@index([examId])
+  @@map("exam_questions")
+}
+
+model ExamAttempt {
+  id           String        @id @default(uuid())
+  examId       String
+  exam         Exam          @relation(fields: [examId], references: [id])
+  userId       String
+  user         User          @relation(fields: [userId], references: [id])
+
+  status       AttemptStatus @default(IN_PROGRESS)
+  // answers: { questionId: { response: any, autoSavedAt: string } }
+  answers      Json          @default("{}")
+
+  score        Float?
+  totalMarks   Int?
+  percentage   Float?
+
+  startedAt    DateTime      @default(now())
+  submittedAt  DateTime?
+  markedAt     DateTime?
+
+  @@index([examId])
+  @@index([userId])
+  @@map("exam_attempts")
+}
+
+// ─────────────────────────────────────────────
+// TEACHER UPLOADS (revision papers / marking schemes pending review)
+// ─────────────────────────────────────────────
+
+model TeacherUpload {
+  id           String       @id @default(uuid())
+  teacherId    String
+  teacher      User         @relation(fields: [teacherId], references: [id])
+  title        String
+  subjectArea  String
+  fileUrl      String
+  fileType     String // "pdf" | "docx"
+  status       UploadStatus @default(PENDING_REVIEW)
+  reviewNotes  String?
+  createdAt    DateTime     @default(now())
+  reviewedAt   DateTime?
+
+  @@index([teacherId])
+  @@index([status])
+  @@map("teacher_uploads")
+}
+
+// ─────────────────────────────────────────────
+// PAYMENTS & SUBSCRIPTIONS
+// ─────────────────────────────────────────────
+
+model Subscription {
+  id            String              @id @default(uuid())
+  userId        String
+  user          User                @relation(fields: [userId], references: [id])
+  plan          SubscriptionPlan
+  status        SubscriptionStatus  @default(PENDING)
+  startedAt     DateTime            @default(now())
+  expiresAt     DateTime? // null for LIFETIME
+  autoRenew     Boolean             @default(false)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  payments      Payment[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+model PaperPurchase {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  examId     String
+  exam       Exam     @relation(fields: [examId], references: [id])
+  paymentId  String   @unique
+  payment    Payment  @relation(fields: [paymentId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, examId])
+  @@map("paper_purchases")
+}
+
+model Coupon {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  discountPercent Int
+  maxUses         Int?
+  usedCount       Int      @default(0)
+  expiresAt       DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  payments        Payment[]
+
+  @@map("coupons")
+}
+
+model Payment {
+  id              String          @id @default(uuid())
+  userId          String
+  user            User            @relation(fields: [userId], references: [id])
+
+  provider        PaymentProvider
+  purpose         PaymentPurpose
+  status          PaymentStatus   @default(PENDING)
+
+  amountKes       Int // stored in whole KES for M-Pesa consistency
+  currency        String          @default("KES")
+
+  // provider-specific identifiers
+  mpesaMerchantRequestId String?
+  mpesaCheckoutRequestId String?         @unique
+  mpesaReceiptNumber     String?         @unique
+  stripePaymentIntentId  String?         @unique
+  stripeCheckoutSessionId String?        @unique
+  paypalOrderId          String?         @unique
+
+  couponId        String?
+  coupon          Coupon?         @relation(fields: [couponId], references: [id])
+
+  subscriptionId  String?
+  subscription    Subscription?   @relation(fields: [subscriptionId], references: [id])
+
+  // Set only when purpose = PAPER_PURCHASE — identifies which exam this
+  // payment is unlocking, so fulfillment can grant access without parsing metadata.
+  examId          String?
+  exam            Exam?           @relation(fields: [examId], references: [id])
+
+  metadata        Json?           // raw callback payloads for audit purposes
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  paperPurchase   PaperPurchase?
+  download        Download?
+
+  @@index([userId])
+  @@index([status])
+  @@index([provider])
+  @@map("payments")
+}
+
+model Download {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  paymentId  String?  @unique
+  payment    Payment? @relation(fields: [paymentId], references: [id])
+  resourceType String // "exam" | "solution" | "marking_scheme" | "certificate" | "receipt"
+  resourceId String
+  fileUrl    String
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@map("downloads")
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS & SYSTEM
+// ─────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String // "email" | "sms" | "push" | "in_app"
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+model WebhookEvent {
+  id          String   @id @default(uuid())
+  provider    PaymentProvider
+  externalId  String // Stripe event.id / PayPal webhook event id
+  eventType   String
+  processedAt DateTime @default(now())
+
+  @@unique([provider, externalId])
+  @@map("webhook_events")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  ipAddress String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────
+// FORUM (Phase 5)
+// ─────────────────────────────────────────────
+
+model ForumThread {
+  id         String   @id @default(uuid())
+  title      String
+  body       String
+  authorId   String
+  author     User     @relation("ForumThreadAuthor", fields: [authorId], references: [id])
+  subjectId  String?
+  subject    Subject? @relation(fields: [subjectId], references: [id])
+  isPinned   Boolean  @default(false)
+  isLocked   Boolean  @default(false)
+  viewCount  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  posts      ForumPost[]
+
+  @@index([subjectId])
+  @@index([authorId])
+  @@map("forum_threads")
+}
+
+model ForumPost {
+  id        String      @id @default(uuid())
+  threadId  String
+  thread    ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User        @relation("ForumPostAuthor", fields: [authorId], references: [id])
+  body      String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([threadId])
+  @@index([authorId])
+  @@map("forum_posts")
+}
+
+// ─────────────────────────────────────────────
+// MESSAGING (Phase 5) — direct teacher <-> student messaging
+// ─────────────────────────────────────────────
+
+model Message {
+  id         String   @id @default(uuid())
+  senderId   String
+  sender     User     @relation("MessageSender", fields: [senderId], references: [id])
+  recipientId String
+  recipient  User     @relation("MessageRecipient", fields: [recipientId], references: [id])
+  body       String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@map("messages")
+}
+
+// ─────────────────────────────────────────────
+// BLOG / CMS (Phase 5)
+// ─────────────────────────────────────────────
+
+model BlogPost {
+  id              String    @id @default(uuid())
+  title           String
+  slug            String    @unique
+  excerpt         String
+  content         String
+  coverImageUrl   String?
+  authorId        String
+  author          User      @relation(fields: [authorId], references: [id])
+  isPublished     Boolean   @default(false)
+  publishedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([isPublished, publishedAt])
+  @@map("blog_posts")
+}
+
+// ─────────────────────────────────────────────
+// REFERRAL PROGRAM (Phase 5)
+// ─────────────────────────────────────────────
+
+model Referral {
+  id            String   @id @default(uuid())
+  referrerId    String
+  referrer      User     @relation("ReferralReferrer", fields: [referrerId], references: [id])
+  refereeId     String   @unique
+  referee       User     @relation("ReferralReferee", fields: [refereeId], references: [id])
+  rewardGranted Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([referrerId])
+  @@map("referrals")
+}
+
+// ─────────────────────────────────────────────
+// LIVE CLASSES (Phase 6) — Zoom sessions & YouTube lesson videos
+// ─────────────────────────────────────────────
+
+enum LiveClassType {
+  ZOOM
+  YOUTUBE
+}
+
+model LiveClass {
+  id           String        @id @default(uuid())
+  title        String
+  description  String?
+  type         LiveClassType
+  subjectId    String?
+  subject      Subject?      @relation(fields: [subjectId], references: [id])
+  hostId       String
+  host         User          @relation(fields: [hostId], references: [id])
+
+  // For ZOOM: the join URL for the scheduled meeting. For YOUTUBE: the
+  // video URL (live stream or pre-recorded lesson) — one model covers both
+  // since from the student's point of view they're both "watch this now/at
+  // this time" cards on the same schedule.
+  joinUrl      String
+  scheduledStart DateTime?
+  durationMinutes Int?
+  isPublished  Boolean       @default(false)
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([subjectId])
+  @@index([scheduledStart])
+  @@map("live_classes")
+}
+
+// ─────────────────────────────────────────────
+// STUDY PLANNER (Phase 6)
+// ─────────────────────────────────────────────
+
+model StudyPlanItem {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  subjectId   String?
+  subject     Subject? @relation(fields: [subjectId], references: [id])
+  scheduledFor DateTime
+  isCompleted Boolean  @default(false)
+  notes       String?
+  reminderSentAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, scheduledFor])
+  @@map("study_plan_items")
+}
+
+// ─────────────────────────────────────────────
+// NEWSLETTER (Phase 6)
+// ─────────────────────────────────────────────
+
+model NewsletterSubscriber {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  isConfirmed  Boolean   @default(false)
+  unsubscribedAt DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@map("newsletter_subscribers")
+}
