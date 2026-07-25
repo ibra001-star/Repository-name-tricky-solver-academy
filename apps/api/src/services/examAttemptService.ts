@@ -136,7 +136,7 @@ export const submitAttempt = async (
     const response = entry?.response;
     const { awarded, isCorrect } = markAnswer(
       question.type,
-      question.content as QuestionContent,
+      question.content as unknown as QuestionContent,
       question.marks,
       response,
       attempt.exam.negativeMarking
