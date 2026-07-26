@@ -6,8 +6,8 @@ RUN apk add --no-cache openssl
 # ── Dependencies ────────────────────────────────────────────────────
 FROM base AS deps
 COPY package.json package-lock.json* ./
+RUN npm config set ignore-scripts false
 RUN npm ci
-
 # ── Build ───────────────────────────────────────────────────────────
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
@@ -19,10 +19,8 @@ RUN npm run build
 FROM base AS production
 ENV NODE_ENV=production
 COPY package.json package-lock.json* ./
+RUN npm config set ignore-scripts false
 RUN npm ci --omit=dev
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/prisma ./prisma
-RUN npx prisma generate
 
 # Run as a non-root user for defense-in-depth
 RUN addgroup -g 1001 -S nodejs && adduser -S tsa -u 1001
