@@ -14,6 +14,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
 RUN npm run build
+RUN ls -la dist && ls -la dist/src
 
 # ── Production ──────────────────────────────────────────────────────
 FROM base AS production
