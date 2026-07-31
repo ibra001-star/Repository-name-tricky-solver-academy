@@ -20,7 +20,7 @@
   "dependencies": {
     "@prisma/client": "^5.19.1",
     "africastalking": "^0.8.0",
-    "argon2": "^0.40.3",
+    "argon2": "^0.45.1",
     "cloudinary": "^2.10.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
