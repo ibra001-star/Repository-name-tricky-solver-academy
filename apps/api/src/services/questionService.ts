@@ -101,7 +101,7 @@ export const getQuestionById = async (id: string, requester: { id: string; role:
   return canSeeSolutions ? question : withoutSolution(question);
 };
 
-export const createQuestion = async (input: CreateQuestionInput, authorId: string) => {
+export const createQuestion = async (input: CreateQuestionInput, authorId: string, role?: Role) => {
   const [subject, topic] = await Promise.all([
     prisma.subject.findUnique({ where: { id: input.subjectId } }),
     prisma.topic.findUnique({ where: { id: input.topicId } }),
@@ -120,6 +120,7 @@ export const createQuestion = async (input: CreateQuestionInput, authorId: strin
       authorId,
       // Admins/super-admins auto-approve; teachers require review, matching
       // the "Approve uploads" admin workflow from the product spec.
+      isApproved: role === 'ADMIN' || role === 'SUPER_ADMIN',
     },
     include: { topic: true, subject: true },
   });

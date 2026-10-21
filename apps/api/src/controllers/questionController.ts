@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler';
 import { AppError } from '../utils/AppError';
 import * as questionService from '../services/questionService';
+import { importQuestions as runImport } from '../services/questionImportService';
 import { ListQuestionsQuery } from '../utils/validators/questionValidators';
 
 export const listQuestions = asyncHandler(async (req: Request, res: Response) => {
@@ -17,7 +18,7 @@ export const getQuestion = asyncHandler(async (req: Request, res: Response) => {
 
 export const createQuestion = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) throw AppError.unauthorized();
-  const question = await questionService.createQuestion(req.body, req.user.id);
+  const question = await questionService.createQuestion(req.body, req.user.id, req.user.role);
   res.status(201).json({ success: true, data: { question } });
 });
 
@@ -53,4 +54,10 @@ export const listBookmarks = asyncHandler(async (req: Request, res: Response) =>
   if (!req.user) throw AppError.unauthorized();
   const bookmarks = await questionService.listBookmarks(req.user.id);
   res.status(200).json({ success: true, data: { bookmarks } });
+});
+
+export const importQuestions = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw AppError.unauthorized();
+  const result = await runImport(req.body.rows, req.body.dryRun, req.user);
+  res.status(200).json({ success: true, data: result });
 });

@@ -54,6 +54,11 @@ export const createQuestionSchema = z.object({
   marks: z.number().int().min(1).max(100).default(1),
 });
 
+export const importQuestionsSchema = z.object({
+  dryRun: z.boolean().default(true),
+  rows: z.array(z.record(z.unknown())).min(1, 'No rows to import').max(300, 'Import at most 300 questions at a time'),
+});
+
 export const updateQuestionSchema = createQuestionSchema.partial();
 
 export const approveQuestionSchema = z.object({

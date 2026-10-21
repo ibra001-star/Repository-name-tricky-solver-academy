@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { Loader2, Trophy, CheckCircle2, XCircle, HelpCircle, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MathText } from '@/components/exam/math-text';
+import { RichText } from '@/components/exam/rich-text';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { api, ApiError } from '@/lib/api';
 import { AttemptResult, Certificate } from '@/types';
@@ -137,7 +138,7 @@ export default function ExamResultPage() {
               {q.isCorrect === null && <HelpCircle className="h-5 w-5 shrink-0 text-muted-foreground" />}
             </div>
 
-            <p className="mt-2 text-sm">{q.content.text}</p>
+            <p className="mt-2 text-sm"><RichText text={q.content.text} /></p>
             {q.content.latex && <MathText latex={q.content.latex} displayMode className="mt-2 block" />}
 
             <div className="mt-4 rounded-lg bg-muted/50 p-4 text-sm">
@@ -155,11 +156,13 @@ export default function ExamResultPage() {
               <p className="font-medium text-brand-700 dark:text-brand-300">Solution</p>
               <ul className="mt-1 list-inside list-disc space-y-1 text-brand-900 dark:text-brand-200">
                 {q.solution.steps.map((step, stepIndex) => (
-                  <li key={stepIndex}>{step}</li>
+                  <li key={stepIndex}>
+                    <RichText text={step} />
+                  </li>
                 ))}
               </ul>
               <p className="mt-2 font-semibold text-brand-700 dark:text-brand-300">
-                Final answer: {q.solution.finalAnswer}
+                Final answer: <RichText text={q.solution.finalAnswer} />
               </p>
             </div>
 

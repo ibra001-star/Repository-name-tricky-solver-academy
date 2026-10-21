@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Bookmark, BookmarkCheck } from 'lucide-react';
 import { Question } from '@/types';
 import { MathText } from '@/components/exam/math-text';
+import { RichText } from '@/components/exam/rich-text';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/hooks/useAuthStore';
 import { cn } from '@/lib/utils';
@@ -59,7 +60,7 @@ export const QuestionCard = ({ question }: { question: Question }) => {
         )}
       </div>
 
-      <p className="mt-3 text-sm leading-relaxed">{question.content.text}</p>
+      <p className="mt-3 text-sm leading-relaxed"><RichText text={question.content.text} /></p>
       {question.content.latex && <MathText latex={question.content.latex} displayMode className="mt-2 block" />}
 
       <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">

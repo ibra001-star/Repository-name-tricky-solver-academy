@@ -7,6 +7,7 @@ import {
   updateQuestionSchema,
   approveQuestionSchema,
   listQuestionsQuerySchema,
+  importQuestionsSchema,
 } from '../utils/validators/questionValidators';
 
 const router = Router();
@@ -140,6 +141,24 @@ router.post(
   authorize('TEACHER', 'ADMIN', 'SUPER_ADMIN'),
   validate(createQuestionSchema),
   questionController.createQuestion
+);
+
+/**
+ * @openapi
+ * /questions/import:
+ *   post:
+ *     tags: [Questions]
+ *     summary: Bulk import questions from spreadsheet rows (admin). Use dryRun to check first.
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200: { description: Per-row import report }
+ */
+router.post(
+  '/import',
+  authenticate,
+  authorize('ADMIN', 'SUPER_ADMIN'),
+  validate(importQuestionsSchema),
+  questionController.importQuestions
 );
 
 /**

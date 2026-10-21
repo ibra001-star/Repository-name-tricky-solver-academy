@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, DollarSign, FileCheck, ScrollText } from 'lucide-react';
+import { LayoutDashboard, Users, DollarSign, FileCheck, ScrollText, FileSpreadsheet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const links = [
@@ -10,6 +10,7 @@ const links = [
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/revenue', label: 'Revenue', icon: DollarSign },
   { href: '/admin/uploads', label: 'Upload Approvals', icon: FileCheck },
+  { href: '/admin/questions/import', label: 'Import Questions', icon: FileSpreadsheet },
   { href: '/admin/logs', label: 'Audit Logs', icon: ScrollText },
 ];
 

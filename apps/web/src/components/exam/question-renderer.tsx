@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
 import { ExamTakingQuestion } from '@/types';
 import { MathText } from './math-text';
+import { RichText } from './rich-text';
 import { cn } from '@/lib/utils';
 
 interface QuestionRendererProps {
@@ -43,7 +44,7 @@ export const QuestionRenderer = ({ question, index, response, onChange, disabled
         )}
       </div>
 
-      <p className="mt-3 text-sm leading-relaxed">{content.text}</p>
+      <p className="mt-3 text-sm leading-relaxed"><RichText text={content.text} /></p>
       {content.latex && <MathText latex={content.latex} displayMode className="mt-3 block text-base" />}
 
       {content.imageUrls?.map((url) => (
@@ -70,7 +71,7 @@ export const QuestionRenderer = ({ question, index, response, onChange, disabled
                   onChange={() => onChange(option.id)}
                   disabled={disabled}
                 />
-                {option.text}
+                <RichText text={option.text} />
               </label>
             ))}
           </div>
